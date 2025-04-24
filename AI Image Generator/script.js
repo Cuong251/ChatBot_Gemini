@@ -2,6 +2,7 @@ const themeToggle = document.querySelector(".theme-toggle");
 const promtForm = document.querySelector(".prompt-form");
 const promtInput = document.querySelector(".prompt-input");
 const promptBtn = document.querySelector(".prompt-btn");
+const generateBtn = document.querySelector(".generate-btn");
 const modelSelect = document.getElementById("model-select");
 const countSelect = document.getElementById("count-select");
 const ratioSelect = document.getElementById("ratio-select");
@@ -61,10 +62,25 @@ const getImageDimensions = (aspectRatio, baseSize = 512) => {
     return { width: calculatedWidth, height: calculatedHeight };
 };
 
+// Replace loading spinner with the actual image
+const updateImageCards = (imgIndex, imgUrl) => {
+    const imgCard = document.getElementById(`img-card-${imgIndex}`);
+    if(!imgCard) return;
+
+    imgCard.classList.remove("loading");
+    imgCard.innerHTML = `<img src="${imgUrl}" class="result-img">
+                        <div class="img-overlay">
+                            <a href="${imgUrl}" class="img-download-btn" download="${Date.now()}.png">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
+                        </div>`;
+}
+
 // Send requests to Hugging Face API to create images
 const generateImages = async (selectedModel, imageCount, aspectRatio, promptText) => {
-    const MODEL_URL = `https://router.huggingface.co/fal-ai/fal-ai/flux/dev`;
+    const MODEL_URL = `https://router.huggingface.co/hf-inference/models/${selectedModel}`;
     const { width, height } = getImageDimensions(aspectRatio);
+    generateBtn.setAttribute("disabled", "true");
 
     // Create an array of image generation promises
     const imagePromises = Array.from({length: imageCount}, async(_, i) => {
@@ -85,13 +101,19 @@ const generateImages = async (selectedModel, imageCount, aspectRatio, promptText
 
         if (!response.ok) throw new Error((await response.json())?.error);
 
+        // Convert response to an image URL and update the image card
         const result = await response.blob();
+        updateImageCards(i, URL.createObjectURL(result));
         console.log(result);
     } catch (error) {
         console.log(error);
+        const imgCard = document.getElementById(`img-card-${i}`);
+        imgCard.classList.replace("loading", "error");
+        imgCard.querySelector(".status-text").textContent = "Generation failed! Check console for more details."
     }
 })
     await Promise.allSettled(imagePromises);
+    generateBtn.removeAttribute("disable");
 };
 
 // Create placeholder cards with loading spinners
@@ -105,7 +127,6 @@ const createImageCards = (selectedModel, imageCount, aspectRatio, promptText) =>
                             <i class="fa-solid fa-triangle-exclamation"></i>
                             <p class="status-text"> Generating...</p>
                         </div>
-                        <img src="test.png" class="result-img">
                     </div>`;
     }
 
